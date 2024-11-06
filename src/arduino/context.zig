@@ -15,8 +15,6 @@ comptime {
 }
 
 fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) void {
-    _ = presave_code;
-    _ = load_address_to_Z_code;
     const asm_str =
         \\
         \\# push Zdd 
@@ -24,12 +22,12 @@ fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u
         \\push r31
         \\# Save SREG value using R0 as a temporary register.
         \\in r30, __SREG__
-        \\{s}
+    + "\n" + presave_code + "\n" +
         \\push r0
         \\# Push SREG value.
         \\push r30
         \\# Load address of a context pointer structure to Z
-        \\{s}
+    + load_address_to_Z_code +
         \\# save SREG to the context structure
         \\pop r0
         \\st Z+, r0
@@ -117,11 +115,11 @@ fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u
     ;
     asm volatile (asm_str);
 }
+
 fn restorecontext(comptime load_address_to_Z_code: []u8) void {
-    _ = load_address_to_Z_code;
     const asm_str =
         \\#load address of a context structure pointer to Z
-        \\load_address_to_Z_code
+    + "\n" + load_address_to_Z_code + "\n" +
         \\#Go to the end of the context structure and
         \\#start restoring it from there.
         \\adiw r30, AVR_CONTEXT_OFFSET_SP_H
