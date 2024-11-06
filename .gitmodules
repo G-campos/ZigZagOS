@@ -1,0 +1,3 @@
+[submodule "avr-arduino-zig"]
+	path = avr-arduino-zig
+	url = https://github.com/FireFox317/avr-arduino-zig

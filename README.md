@@ -9,9 +9,18 @@
 
 ZigZag is an operational system for embedded systems written in Zig
 
+## Cloning
+
+Clone this repo with
+
+```bash
+# Initialize submodules with recursive
+git clone --recursive https://github.com/wainejr/ZigZagOS/
+```
+
 ## Run
 
-Make sure you have [Zig]() installed and you're on a Unix-like machine.
+Make sure you have [Zig](https://ziglang.org/) installed and you're on a Unix-like machine.
 
 After that you can run each test using the command
 
