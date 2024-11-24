@@ -33,7 +33,7 @@ pub const ContextAVR = packed struct {
     sp: LowHighAVR,
 };
 
-inline fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) noreturn {
+inline fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) noreturn {
     const asm_str =
         \\
         \\# push Zdd 
@@ -135,7 +135,7 @@ inline fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_co
     asm volatile (asm_str);
 }
 
-inline fn restorecontext(comptime load_address_to_Z_code: []u8) noreturn {
+inline fn avr_restorecontext(comptime load_address_to_Z_code: []u8) noreturn {
     const asm_str =
         \\#load address of a context structure pointer to Z
     + "\n" + load_address_to_Z_code + "\n" +
@@ -207,7 +207,7 @@ inline fn restorecontext(comptime load_address_to_Z_code: []u8) noreturn {
 }
 
 inline fn avr_save_context_global_pointer(comptime presave_code: []u8, comptime global_context_pointer: []u8) noreturn {
-    savecontext(presave_code,
+    avr_savecontext(presave_code,
         \\lds ZL, 
     + global_context_pointer + "\n" +
         \\lds ZH, 
@@ -215,7 +215,7 @@ inline fn avr_save_context_global_pointer(comptime presave_code: []u8, comptime 
 }
 
 inline fn avr_restore_context_global_pointer(comptime global_context_pointer: []u8) noreturn {
-    restorecontext(
+    avr_restorecontext(
         \\lds ZL, 
     ++ global_context_pointer ++
         \\\n
@@ -225,8 +225,35 @@ inline fn avr_restore_context_global_pointer(comptime global_context_pointer: []
     );
 }
 
-pub fn getcontext() callconv(.Naked) void {}
+// void avr_getcontext(avr_context_t *cp) __attribute__ ((naked));
+// void avr_getcontext(avr_context_t *cp)
+// {
+//     (void)cp; /* to avoid compiler warnings */
+//     AVR_SAVE_CONTEXT(
+//         "",
+//         "mov r30, r24\n"
+//         "mov r31, r25\n");
+//     __asm__ __volatile__ ("ret\n");
+// }
 
-pub fn swapcontext() callconv(.Naked) void {}
+pub fn avr_getcontext(cp: *ContextAVR) callconv(.Naked) void {
+    _ = cp;
+    avr_savecontext("", "mov r30, r24\nmov r31, r25\n");
+    asm volatile ("ret\n");
+}
 
-pub fn makecontext() callconv(.Naked) void {}
+pub fn avr_setcontext(cp: *ContextAVR) callconv(.Naked) void {
+    _ = cp;
+    avr_restorecontext("", "mov r30, r24\nmov r31, r25\n");
+    asm volatile ("ret\n");
+}
+
+pub fn avr_swapcontext(oucp: *ContextAVR, ucp: *ContextAVR) callconv(.Naked) void {
+    _ = oucp;
+    _ = ucp;
+    avr_savecontext("", "mov r30, r24\nmov r31, r25\n");
+    avr_restorecontext("", "mov r30, r22\nmov r31, r23\n");
+    asm volatile ("ret\n");
+}
+
+pub fn avr_makecontext() callconv(.Naked) void {}
