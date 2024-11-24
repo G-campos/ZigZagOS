@@ -2,7 +2,7 @@
 /// https://github.com/arbv/avr-context
 const std = @import("std");
 
-fn avr_context_asmconst(comptime name: []u8, comptime value: i32) void {
+inline fn avr_context_asmconst(comptime name: []u8, comptime value: i32) noreturn {
     asm volatile (".equ " + name + "," + value + "\t");
 }
 
@@ -14,7 +14,7 @@ comptime {
     avr_context_asmconst("AVR_CONTEXT_BACK_OFFSET_R26", 9);
 }
 
-fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) void {
+inline fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) noreturn {
     const asm_str =
         \\
         \\# push Zdd 
@@ -116,7 +116,7 @@ fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u
     asm volatile (asm_str);
 }
 
-fn restorecontext(comptime load_address_to_Z_code: []u8) void {
+inline fn restorecontext(comptime load_address_to_Z_code: []u8) noreturn {
     const asm_str =
         \\#load address of a context structure pointer to Z
     + "\n" + load_address_to_Z_code + "\n" +
@@ -187,8 +187,27 @@ fn restorecontext(comptime load_address_to_Z_code: []u8) void {
     asm volatile (asm_str);
 }
 
-pub fn getcontext() void {}
+inline fn avr_save_context_global_pointer(comptime presave_code: []u8, comptime global_context_pointer: []u8) noreturn {
+    savecontext(presave_code,
+        \\lds ZL, 
+    + global_context_pointer + "\n" +
+        \\lds ZH, 
+    + global_context_pointer + "+ 1\n");
+}
 
-pub fn swapcontext() void {}
+inline fn avr_restore_context_global_pointer(comptime global_context_pointer: []u8) noreturn {
+    restorecontext(
+        \\lds ZL, 
+    ++ global_context_pointer ++
+        \\\n
+        \\lds ZH, 
+    ++ global_context_pointer ++
+        \\+ 1\n"
+    );
+}
 
-pub fn makecontext() void {}
+pub fn getcontext() callconv(.Naked) void {}
+
+pub fn swapcontext() callconv(.Naked) void {}
+
+pub fn makecontext() callconv(.Naked) void {}
