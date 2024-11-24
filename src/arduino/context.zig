@@ -14,6 +14,25 @@ comptime {
     avr_context_asmconst("AVR_CONTEXT_BACK_OFFSET_R26", 9);
 }
 
+pub const LowHighAVR = packed struct {
+    const Self = @This();
+
+    low: u8,
+    high: u8,
+
+    pub fn ptr(self: Self) *void {
+        const val: u16 = self.low + (self.high << 8);
+        return @ptrFromInt(val);
+    }
+};
+
+pub const ContextAVR = packed struct {
+    sreg: u8,
+    regs: [32]u8,
+    pc: LowHighAVR,
+    sp: LowHighAVR,
+};
+
 inline fn savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) noreturn {
     const asm_str =
         \\
