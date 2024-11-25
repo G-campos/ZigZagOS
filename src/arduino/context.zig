@@ -17,12 +17,16 @@ comptime {
 pub const LowHighAVR = packed struct {
     const Self = @This();
 
-    low: u8,
-    high: u8,
+    ptr: *void,
 
-    pub fn ptr(self: Self) *void {
-        const val: u16 = self.low + (self.high << 8);
-        return @ptrFromInt(val);
+    pub fn low(self: Self) u8 {
+        const val: u16 = self.ptr & (0xFF);
+        return @intCast(val);
+    }
+
+    pub fn high(self: Self) u8 {
+        const val: u16 = (self.ptr >> 8) & (0xFF);
+        return @intCast(val);
     }
 };
 
@@ -256,4 +260,30 @@ pub fn avr_swapcontext(oucp: *ContextAVR, ucp: *ContextAVR) callconv(.Naked) voi
     asm volatile ("ret\n");
 }
 
-pub fn avr_makecontext() callconv(.Naked) void {}
+const ContextFunc = *const fn (argp: *void) void;
+
+fn avr_makecontext_callfunc(successor: *ContextAVR, func: ContextFunc, args: *void) void {
+    func(args);
+    avr_setcontext(successor);
+}
+
+pub fn avr_makecontext(cp: *ContextAVR, stackp: *void, stack_size: usize, successor_cp: *ContextAVR, funcp: ContextFunc, funcargs: *void) callconv(.Naked) void {
+    var addr: u16 = undefined;
+    const p: *u8 = @ptrCast(&addr);
+    // initialise stack pointer and program counter
+    var stack_pos: usize = @intFromPtr(stackp);
+    stack_pos += @intCast(stack_size - 1);
+    cp.*.sp.ptr = @ptrFromInt(stack_pos);
+    cp.*.pc.ptr = avr_makecontext_callfunc;
+    // initialise registers to pass arguments to avr_makecontext_callfunc
+    // successor: registers 24,25; func registers 23, 22; funcarg: 21, 20.
+    addr = @intFromPtr(successor_cp);
+    cp.*.regs[24] = p[0];
+    cp.*.regs[25] = p[1];
+    addr = @intFromPtr(funcp);
+    cp.*.regs[22] = p[0];
+    cp.*.regs[23] = p[1];
+    addr = @intFromPtr(funcargs);
+    cp.*.regs[20] = p[0];
+    cp.*.regs[21] = p[1];
+}
