@@ -3,7 +3,7 @@
 const std = @import("std");
 
 inline fn avr_context_asmconst(comptime name: []u8, comptime value: i32) noreturn {
-    asm volatile (".equ " + name + "," + value + "\t");
+    asm volatile (".equ " + name + "," + value + "\n");
 }
 
 comptime {
@@ -40,23 +40,23 @@ pub const ContextAVR = packed struct {
 fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) callconv(.Naked) noreturn {
     const asm_str =
         \\
-        \\# push Zdd 
+        \\; push Zdd 
         \\push r30
         \\push r31
-        \\# Save SREG value using R0 as a temporary register.
+        \\; Save SREG value using R0 as a temporary register.
         \\in r30, __SREG__
     + "\n" + presave_code + "\n" +
         \\push r0
-        \\# Push SREG value.
+        \\; Push SREG value.
         \\push r30
-        \\# Load address of a context pointer structure to Z
+        \\; Load address of a context pointer structure to Z
     + load_address_to_Z_code +
-        \\# save SREG to the context structure
+        \\; save SREG to the context structure
         \\pop r0
         \\st Z+, r0
-        \\# Restore initial R0 value.
+        \\; Restore initial R0 value.
         \\pop r0 
-        \\# Save general purpose register values.
+        \\; Save general purpose register values.
         \\st z+, r0
         \\st z+, r1
         \\st z+, r2
@@ -87,52 +87,52 @@ fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code:
         \\st z+, r27
         \\st z+, r28
         \\st z+, r29
-        \\# Switch to other index register (Z to Y) as its has been saved at this point
+        \\; Switch to other index register (Z to Y) as its has been saved at this point
         \\mov r28, r30
         \\mov r29, r31
-        \\# Restore and save values of registers 30 and 31 (Z)
+        \\; Restore and save values of registers 30 and 31 (Z)
         \\pop r31
         \\pop r30
         \\st y+, r30
         \\st y+, r31
-        \\# Pop and save the return address
+        \\; Pop and save the return address
         \\pop r30
         \\pop r31
         \\st y+, r31
         \\st y+, r30
-        \\# Save the stack pointer to the structure.
+        \\; Save the stack pointer to the structure.
         \\in r26, __SP_L__
         \\in r27, __SP_H__
         \\st y+, r26
         \\st y, r27
-        \\# Push the return address back at the top of the stack.
+        \\; Push the return address back at the top of the stack.
         \\push r31
         \\push r30
-        \\# At this point the context is saved, but registers
-        \\# 26, 27, 28, 29, 30, and 31 are clobbered.
-        \\# In some cases we may not need to restore them,
-        \\# but let's remain on the clean side and restore their values.
-        \\# We have to do that because we provide a generic solution.
+        \\; At this point the context is saved, but registers
+        \\; 26, 27, 28, 29, 30, and 31 are clobbered.
+        \\; In some cases we may not need to restore them,
+        \\; but let's remain on the clean side and restore their values.
+        \\; We have to do that because we provide a generic solution.
         \\mov r30, r28
         \\mov r31, r29
-        \\# go to the offset of R26 in the context structure
+        \\; go to the offset of R26 in the context structure
         \\in r28, __SREG__
         \\sbiw r30, AVR_CONTEXT_BACK_OFFSET_R26
         \\out __SREG__, r28
-        \\# Restore registers 26-29
+        \\; Restore registers 26-29
         \\ld r26, Z+
         \\ld r27, Z+
         \\ld r28, Z+
         \\ld r29, Z+
-        \\# save R28, R29 (Y) on the stack
+        \\; save R28, R29 (Y) on the stack
         \\push r28
         \\push r29
-        \\# switch to other index register (z to y) and read r30 and r31
+        \\; switch to other index register (z to y) and read r30 and r31
         \\mov r28, r30
         \\mov r29, r31
         \\ld r30, Y+
         \\ld r31, Y
-        \\# Restore R28, R29 (Y) from the stack
+        \\; Restore R28, R29 (Y) from the stack
         \\pop r29
         \\pop r28
     ;
@@ -141,33 +141,33 @@ fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code:
 
 fn avr_restorecontext(comptime load_address_to_Z_code: []u8) callconv(.Naked) noreturn {
     const asm_str =
-        \\#load address of a context structure pointer to Z
+        \\; load address of a context structure pointer to Z
     + "\n" + load_address_to_Z_code + "\n" +
-        \\#Go to the end of the context structure and
-        \\#start restoring it from there.
+        \\; Go to the end of the context structure and
+        \\; start restoring it from there.
         \\adiw r30, AVR_CONTEXT_OFFSET_SP_H
-        \\#Restore the saved stack pointer.
+        \\; Restore the saved stack pointer.
         \\ld r0, Z
         \\out __SP_H__, r0
         \\ld r0, -Z
         \\out __SP_L__, r0
-        \\#Put the saved return address (PC) back on the top of the stack.
+        \\; Put the saved return address (PC) back on the top of the stack.
         \\ld r1, -Z
         \\ld r0, -Z
         \\push r0
         \\push r1
-        \\#Temporarily switch pointer from Z to Y,dd 
-        \\#restore r31, r30 (Z) and put them on top of the stack.
+        \\; Temporarily switch pointer from Z to Y,dd 
+        \\; restore r31, r30 (Z) and put them on top of the stack.
         \\mov r28, r30
         \\mov r29, r31
         \\ld r31, -Y
         \\ld r30, -Y
         \\push r31
         \\push r30
-        \\#Switch back from Y to Z.
+        \\; Switch back from Y to Z.
         \\mov r30, r28
         \\mov r31, r29
-        \\#Restore other general purpose registers.
+        \\; Restore other general purpose registers.
         \\ld r29, -Z
         \\ld r28, -Z
         \\ld r27, -Z
@@ -198,12 +198,12 @@ fn avr_restorecontext(comptime load_address_to_Z_code: []u8) callconv(.Naked) no
         \\ld r2, -Z
         \\ld r1, -Z
         \\ld r0, -Z
-        \\#Restore SREG
+        \\; Restore SREG
         \\push r0
         \\ld r0, -Z
         \\out __SREG__, r0
         \\pop r0
-        \\#Restore r31, r30 (Z) from the stack.
+        \\; Restore r31, r30 (Z) from the stack.
         \\pop r30
         \\pop r3
     ;
