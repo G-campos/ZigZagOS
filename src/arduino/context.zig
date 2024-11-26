@@ -269,11 +269,9 @@ fn avr_makecontext_callfunc(successor: *ContextAVR, func: ContextFunc, args: *vo
 
 pub fn avr_makecontext(cp: *ContextAVR, stackp: *void, stack_size: usize, successor_cp: *ContextAVR, funcp: ContextFunc, funcargs: *void) callconv(.Naked) void {
     var addr: u16 = undefined;
-    const p: *u8 = @ptrCast(&addr);
+    const p: [*]u8 = @constCast(@ptrCast(&addr));
     // initialise stack pointer and program counter
-    var stack_pos: usize = @intFromPtr(stackp);
-    stack_pos += @intCast(stack_size - 1);
-    cp.*.sp.ptr = @ptrFromInt(stack_pos);
+    cp.*.sp.ptr = @constCast(@ptrCast(&(stackp[stack_size - 1])));
     cp.*.pc.ptr = avr_makecontext_callfunc;
     // initialise registers to pass arguments to avr_makecontext_callfunc
     // successor: registers 24,25; func registers 23, 22; funcarg: 21, 20.
