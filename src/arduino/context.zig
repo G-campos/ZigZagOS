@@ -37,7 +37,7 @@ pub const ContextAVR = packed struct {
     sp: LowHighAVR,
 };
 
-inline fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) noreturn {
+fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code: []u8) callconv(.Naked) noreturn {
     const asm_str =
         \\
         \\# push Zdd 
@@ -139,7 +139,7 @@ inline fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_
     asm volatile (asm_str);
 }
 
-inline fn avr_restorecontext(comptime load_address_to_Z_code: []u8) noreturn {
+fn avr_restorecontext(comptime load_address_to_Z_code: []u8) callconv(.Naked) noreturn {
     const asm_str =
         \\#load address of a context structure pointer to Z
     + "\n" + load_address_to_Z_code + "\n" +
@@ -210,7 +210,7 @@ inline fn avr_restorecontext(comptime load_address_to_Z_code: []u8) noreturn {
     asm volatile (asm_str);
 }
 
-inline fn avr_save_context_global_pointer(comptime presave_code: []u8, comptime global_context_pointer: []u8) noreturn {
+fn avr_save_context_global_pointer(comptime presave_code: []u8, comptime global_context_pointer: []u8) callconv(.Naked) noreturn {
     avr_savecontext(presave_code,
         \\lds ZL, 
     + global_context_pointer + "\n" +
@@ -218,7 +218,7 @@ inline fn avr_save_context_global_pointer(comptime presave_code: []u8, comptime 
     + global_context_pointer + "+ 1\n");
 }
 
-inline fn avr_restore_context_global_pointer(comptime global_context_pointer: []u8) noreturn {
+fn avr_restore_context_global_pointer(comptime global_context_pointer: []u8) callconv(.Naked) noreturn {
     avr_restorecontext(
         \\lds ZL, 
     ++ global_context_pointer ++
