@@ -2,16 +2,14 @@
 /// https://github.com/arbv/avr-context
 const std = @import("std");
 
-inline fn avr_context_asmconst(comptime name: []u8, comptime value: i32) noreturn {
-    asm volatile (".equ " + name + "," + value + "\n");
-}
-
 comptime {
-    avr_context_asmconst("AVR_CONTEXT_OFFSET_PC_L", 33);
-    avr_context_asmconst("AVR_CONTEXT_OFFSET_PC_H", 34);
-    avr_context_asmconst("AVR_CONTEXT_OFFSET_SP_L", 35);
-    avr_context_asmconst("AVR_CONTEXT_OFFSET_SP_H", 36);
-    avr_context_asmconst("AVR_CONTEXT_BACK_OFFSET_R26", 9);
+    asm (
+        \\ .equ AVR_CONTEXT_OFFSET_PC_L, 33
+        \\ .equ AVR_CONTEXT_OFFSET_PC_H, 34
+        \\ .equ AVR_CONTEXT_OFFSET_SP_L, 35
+        \\ .equ AVR_CONTEXT_OFFSET_SP_H, 36
+        \\ .equ AVR_CONTEXT_BACK_OFFSET_R26, 9
+    );
 }
 
 pub const LowHighAVR = packed struct {
@@ -32,7 +30,38 @@ pub const LowHighAVR = packed struct {
 
 pub const ContextAVR = packed struct {
     sreg: u8,
-    regs: [32]u8,
+    r0: u8,
+    r1: u8,
+    r2: u8,
+    r3: u8,
+    r4: u8,
+    r5: u8,
+    r6: u8,
+    r7: u8,
+    r8: u8,
+    r9: u8,
+    r10: u8,
+    r11: u8,
+    r12: u8,
+    r13: u8,
+    r14: u8,
+    r15: u8,
+    r16: u8,
+    r17: u8,
+    r18: u8,
+    r19: u8,
+    r20: u8,
+    r21: u8,
+    r22: u8,
+    r23: u8,
+    r24: u8,
+    r25: u8,
+    r26: u8,
+    r27: u8,
+    r28: u8,
+    r29: u8,
+    r30: u8,
+    r31: u8,
     pc: LowHighAVR,
     sp: LowHighAVR,
 };
@@ -45,12 +74,12 @@ fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code:
         \\push r31
         \\; Save SREG value using R0 as a temporary register.
         \\in r30, __SREG__
-    + "\n" + presave_code + "\n" +
+    ++ "\n" ++ presave_code ++ "\n" ++
         \\push r0
         \\; Push SREG value.
         \\push r30
         \\; Load address of a context pointer structure to Z
-    + load_address_to_Z_code +
+    ++ load_address_to_Z_code ++
         \\; save SREG to the context structure
         \\pop r0
         \\st Z+, r0
@@ -142,7 +171,7 @@ fn avr_savecontext(comptime presave_code: []u8, comptime load_address_to_Z_code:
 fn avr_restorecontext(comptime load_address_to_Z_code: []u8) callconv(.Naked) noreturn {
     const asm_str =
         \\; load address of a context structure pointer to Z
-    + "\n" + load_address_to_Z_code + "\n" +
+    ++ "\n" ++ load_address_to_Z_code ++ "\n" ++
         \\; Go to the end of the context structure and
         \\; start restoring it from there.
         \\adiw r30, AVR_CONTEXT_OFFSET_SP_H
@@ -213,9 +242,9 @@ fn avr_restorecontext(comptime load_address_to_Z_code: []u8) callconv(.Naked) no
 fn avr_save_context_global_pointer(comptime presave_code: []u8, comptime global_context_pointer: []u8) callconv(.Naked) noreturn {
     avr_savecontext(presave_code,
         \\lds ZL, 
-    + global_context_pointer + "\n" +
+    ++ global_context_pointer ++ "\n" ++
         \\lds ZH, 
-    + global_context_pointer + "+ 1\n");
+    ++ global_context_pointer ++ "+ 1\n");
 }
 
 fn avr_restore_context_global_pointer(comptime global_context_pointer: []u8) callconv(.Naked) noreturn {
@@ -260,14 +289,16 @@ pub fn avr_swapcontext(oucp: *ContextAVR, ucp: *ContextAVR) callconv(.Naked) voi
     asm volatile ("ret\n");
 }
 
+// const ContextFunc = *const fn (argp: *void) void;
 const ContextFunc = *const fn (argp: *void) void;
+const ContextFuncParam = *void;
 
 fn avr_makecontext_callfunc(successor: *ContextAVR, func: ContextFunc, args: *void) void {
     func(args);
     avr_setcontext(successor);
 }
 
-pub fn avr_makecontext(cp: *ContextAVR, stackp: *void, stack_size: usize, successor_cp: *ContextAVR, funcp: ContextFunc, funcargs: *void) callconv(.Naked) void {
+pub fn avr_makecontext(cp: *ContextAVR, stackp: *void, stack_size: usize, successor_cp: *ContextAVR, funcp: ContextFuncParam, funcargs: *void) callconv(.Naked) noreturn {
     var addr: u16 = undefined;
     const p: [*]u8 = @constCast(@ptrCast(&addr));
     // initialise stack pointer and program counter
@@ -276,12 +307,19 @@ pub fn avr_makecontext(cp: *ContextAVR, stackp: *void, stack_size: usize, succes
     // initialise registers to pass arguments to avr_makecontext_callfunc
     // successor: registers 24,25; func registers 23, 22; funcarg: 21, 20.
     addr = @intFromPtr(successor_cp);
-    cp.*.regs[24] = p[0];
-    cp.*.regs[25] = p[1];
+    cp.*.r24 = p[0];
+    cp.*.r25 = p[1];
     addr = @intFromPtr(funcp);
-    cp.*.regs[22] = p[0];
-    cp.*.regs[23] = p[1];
+    cp.*.r22 = p[0];
+    cp.*.r23 = p[1];
     addr = @intFromPtr(funcargs);
-    cp.*.regs[20] = p[0];
-    cp.*.regs[21] = p[1];
+    cp.*.r20 = p[0];
+    cp.*.r21 = p[1];
+}
+
+pub fn main() void {
+    var ctx: ContextAVR = undefined;
+    var stackp: [1000]u8 = undefined;
+    avr_makecontext(&ctx, @ptrCast(&stackp), 1000, &ctx, main, &.{});
+    return;
 }
